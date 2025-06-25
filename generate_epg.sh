@@ -12,4 +12,4 @@ npm install
 npm run grab -- --site=us,ca,mx --output=guide.xml
 
 # Move it to root for commit
-mv guide.xml ../guide.xml
+mv guide.xml ./guide.xml
