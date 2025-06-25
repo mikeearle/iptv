@@ -2,7 +2,7 @@ name: Update Playlist & EPG
 
 on:
   schedule:
-    - cron: "0 2 * * *"  # Daily at 2 AM UTC
+    - cron: "0 2 * * *"  # Daily at 2:00 AM UTC
   workflow_dispatch:
 
 jobs:
@@ -18,7 +18,7 @@ jobs:
         with:
           python-version: '3.x'
 
-      - name: Install Python deps
+      - name: Install Python dependencies
         run: pip install requests
 
       - name: Generate M3U playlist
@@ -34,7 +34,9 @@ jobs:
           chmod +x generate_epg.sh
           ./generate_epg.sh
 
-      - name: Commit & Push playlist and guide
+      - name: Auto Commit Playlist and EPG
         uses: stefanzweifel/git-auto-commit-action@v5
         with:
           commit_message: "Auto-update playlist and EPG"
+          file_pattern: "verified_usa_can_mex.m3u guide.xml"
+
