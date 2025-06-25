@@ -8,14 +8,13 @@ cd epg
 # Install dependencies
 npm install
 
-# Run grabber for known working sources
-npm run grab -- --site=plutotv.com,xumo.tv --output=guide.xml
+# Use all known channels (will filter based on grabber source support)
+npm run grab -- --channels=channels/channels.xml --output=../guide.xml
 
-# Move EPG to repo root if it exists
-if [ -f guide.xml ]; then
-  echo "✅ guide.xml generated successfully, moving to root..."
-  mv guide.xml ../guide.xml
+# Move if it exists
+if [ -f ../guide.xml ]; then
+  echo "✅ guide.xml created successfully."
 else
-  echo "❌ guide.xml was NOT generated"
+  echo "❌ guide.xml was not generated. Check if channels.xml has valid entries."
   exit 1
 fi
