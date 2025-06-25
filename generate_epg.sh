@@ -1,12 +1,15 @@
 #!/bin/bash
 set -e
 
-# Clone EPG grabber repo
+# Clone EPG repo
 git clone https://github.com/iptv-org/epg.git epg
 cd epg
 
 # Install dependencies
 npm install
 
-# Run grabber (pulls all site configs and merges into one guide.xml)
-npm run grab -- --site=us,ca,mx --output=../guide.xml
+# Generate EPG into working directory
+npm run grab -- --site=us,ca,mx --output=guide.xml
+
+# Move guide.xml up to repo root
+mv guide.xml ../guide.xml
