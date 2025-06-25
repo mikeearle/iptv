@@ -1,13 +1,14 @@
-name: Update Playlist
+name: Update Playlist & EPG
 
 on:
   schedule:
-    - cron: "0 2 * * *"  # Every day at 2:00 AM UTC
+    - cron: "0 2 * * *"  # Daily at 2 AM UTC
   workflow_dispatch:
 
 jobs:
   build:
     runs-on: ubuntu-latest
+
     steps:
       - name: Checkout repo
         uses: actions/checkout@v3
@@ -17,13 +18,23 @@ jobs:
         with:
           python-version: '3.x'
 
-      - name: Install dependencies
+      - name: Install Python deps
         run: pip install requests
 
       - name: Generate M3U playlist
         run: python generate_playlist.py
 
-      - name: Auto Commit Playlist
+      - name: Set up Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: '20'
+
+      - name: Generate EPG (guide.xml)
+        run: |
+          chmod +x generate_epg.sh
+          ./generate_epg.sh
+
+      - name: Commit & Push playlist and guide
         uses: stefanzweifel/git-auto-commit-action@v5
         with:
-          commit_message: "Auto-update playlist"
+          commit_message: "Auto-update playlist and EPG"
