@@ -9,7 +9,7 @@ cd epg
 npm install
 
 # Generate EPG into working directory
-npm run grab -- --site=us,ca,mx --output=guide.xml
+npm run grab -- --channels=../verified_usa_can_mex.m3u --output=../guide.xml
 
 # Move guide.xml up to repo root
 mv guide.xml ../guide.xml
