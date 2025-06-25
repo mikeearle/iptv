@@ -1,15 +1,12 @@
 #!/bin/bash
 set -e
 
-# Clone EPG repo
+# Clone the EPG grabber repo
 git clone https://github.com/iptv-org/epg.git epg
 cd epg
 
-# Install dependencies
+# Install node dependencies
 npm install
 
-# Generate EPG into working directory
+# Grab EPG only for channels in your playlist
 npm run grab -- --channels=../verified_usa_can_mex.m3u --output=../guide.xml
-
-# Move guide.xml up to repo root
-mv guide.xml ../guide.xml
