@@ -8,5 +8,8 @@ cd epg
 # Install dependencies
 npm install
 
-# Run grabber for North American sites only (US + CA + MX)
-npm run grab -- --site=us,ca,mx --output=../guide.xml
+# Grab EPG from NA region
+npm run grab -- --site=us,ca,mx --output=guide.xml
+
+# Move it to root for commit
+mv guide.xml ../guide.xml
