@@ -1,8 +1,8 @@
-name: Update Curated M3U Playlist
+name: Update Playlist and EPG
 
 on:
   schedule:
-    - cron: '0 6 * * *'  # Every day at 6 AM UTC
+    - cron: '0 6 * * *'
   workflow_dispatch:
 
 jobs:
@@ -21,13 +21,13 @@ jobs:
       - name: Install pandas
         run: pip install pandas
 
-      - name: Download latest USA, Canada, and Mexico playlists
+      - name: Download latest M3U playlists
         run: |
           curl -o verified_usa_can_mex.m3u https://iptv-org.github.io/iptv/countries/us.m3u
           curl https://iptv-org.github.io/iptv/countries/mx.m3u >> verified_usa_can_mex.m3u
           curl https://iptv-org.github.io/iptv/countries/ca.m3u >> verified_usa_can_mex.m3u
 
-      - name: Build curated regional + Freeview M3U
+      - name: Curate verified playlist
         run: |
           python3 <<EOF
           import re
@@ -67,8 +67,18 @@ jobs:
                       f.writelines(entries)
           EOF
 
-      - name: Commit and push changes
+      - name: Clone EPG generator
+        run: git clone https://github.com/iptv-org/epg.git
+
+      - name: Generate guide.xml from curated M3U
+        run: |
+          cd epg
+          npm install
+          npx tsx scripts/commands/epg/grab.ts --channels=../verified_curated_full.m3u --output=../guide.xml
+          cd ..
+
+      - name: Commit playlist and EPG
         uses: stefanzweifel/git-auto-commit-action@v5
         with:
-          commit_message: "Auto-update curated playlist"
-          file_pattern: "verified_curated_full.m3u"
+          commit_message: "Auto-update playlist and guide"
+          file_pattern: "verified_curated_full.m3u guide.xml"
