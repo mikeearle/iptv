@@ -26,14 +26,14 @@ jobs:
       - name: Install Python dependencies
         run: pip install -r requirements.txt
 
+      - name: Clone EPG repo
+        run: git clone https://github.com/iptv-org/epg.git
+
       - name: Generate updated playlist
         run: python generate_playlist.py
 
       - name: Sanitize playlist
         run: python sanitize_playlist.py
-
-      - name: Clone EPG repo
-        run: git clone https://github.com/iptv-org/epg.git
 
       - name: Install EPG dependencies
         run: |
