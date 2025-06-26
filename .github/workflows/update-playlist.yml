@@ -49,33 +49,36 @@ jobs:
 
           for line in lines:
               line = sanitize(line)
+              if not line or line.startswith("#EXTM3U") or line.isspace():
+                  continue
+
               if line.startswith("#EXTINF"):
                   entry_lines = [line + "\n"]
               elif line.startswith("http") and entry_lines:
                   entry_lines.append(line + "\n")
-                  full_entry = "".join(entry_lines)
+                  entry = "".join(entry_lines)
 
-                  # skip malformed entries
-                  if not all(x in entry_lines[0] for x in ["tvg-id=", ","]):
-                      entry_lines = []
-                      continue
-
+                  # Validate tvg-id
                   try:
                       tvg_id = re.search(r'tvg-id="(.*?)"', entry_lines[0]).group(1).lower()
                   except:
                       entry_lines = []
                       continue
 
+                  if not tvg_id or not entry_lines[1].startswith("http"):
+                      entry_lines = []
+                      continue
+
                   if tvg_id in freeview_tvg_ids:
-                      sections["Freeview"].append(full_entry)
+                      sections["Freeview"].append(entry)
                   elif ".us" in tvg_id:
-                      sections["USA"].append(full_entry)
+                      sections["USA"].append(entry)
                   elif ".ca" in tvg_id:
-                      sections["Canada"].append(full_entry)
+                      sections["Canada"].append(entry)
                   elif ".mx" in tvg_id:
-                      sections["Mexico"].append(full_entry)
+                      sections["Mexico"].append(entry)
                   else:
-                      sections["Other"].append(full_entry)
+                      sections["Other"].append(entry)
                   entry_lines = []
 
           with open("verified_curated_full.m3u", "w", encoding="utf-8") as f:
@@ -84,6 +87,12 @@ jobs:
                   if entries:
                       f.write(f"\n# -------- {region.upper()} CHANNELS --------\n")
                       f.writelines(entries)
+
+          with open("skipped_entries.log", "w") as debug_out:
+              total = sum(len(v) for v in sections.values())
+              debug_out.write(f"Processed {len(lines)} lines, {total} valid entries\n")
+              for k, v in sections.items():
+                  debug_out.write(f"{k}: {len(v)}\n")
           EOF
 
       - name: Clone EPG generator
@@ -100,4 +109,4 @@ jobs:
         uses: stefanzweifel/git-auto-commit-action@v5
         with:
           commit_message: "Auto-update playlist and guide"
-          file_pattern: "verified_curated_full.m3u guide.xml"
+          file_pattern: "verified_curated_full.m3u guide.xml skipped_entries.log"
