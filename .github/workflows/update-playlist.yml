@@ -27,7 +27,7 @@ jobs:
           curl https://iptv-org.github.io/iptv/countries/mx.m3u >> verified_usa_can_mex.m3u
           curl https://iptv-org.github.io/iptv/countries/ca.m3u >> verified_usa_can_mex.m3u
 
-      - name: Curate verified playlist (with strict sanitization)
+      - name: Curate verified playlist (EPG-safe strict)
         run: |
           python3 <<EOF
           import re
@@ -53,24 +53,29 @@ jobs:
                   entry_lines = [line + "\n"]
               elif line.startswith("http") and entry_lines:
                   entry_lines.append(line + "\n")
-                  entry = "".join(entry_lines)
-                  tvg_id_match = re.search(r'tvg-id="(.*?)"', entry_lines[0])
-                  tvg_id = tvg_id_match.group(1).lower() if tvg_id_match else ""
+                  full_entry = "".join(entry_lines)
 
-                  if not tvg_id:
+                  # skip malformed entries
+                  if not all(x in entry_lines[0] for x in ["tvg-id=", ","]):
+                      entry_lines = []
+                      continue
+
+                  try:
+                      tvg_id = re.search(r'tvg-id="(.*?)"', entry_lines[0]).group(1).lower()
+                  except:
                       entry_lines = []
                       continue
 
                   if tvg_id in freeview_tvg_ids:
-                      sections["Freeview"].append(entry)
+                      sections["Freeview"].append(full_entry)
                   elif ".us" in tvg_id:
-                      sections["USA"].append(entry)
+                      sections["USA"].append(full_entry)
                   elif ".ca" in tvg_id:
-                      sections["Canada"].append(entry)
+                      sections["Canada"].append(full_entry)
                   elif ".mx" in tvg_id:
-                      sections["Mexico"].append(entry)
+                      sections["Mexico"].append(full_entry)
                   else:
-                      sections["Other"].append(entry)
+                      sections["Other"].append(full_entry)
                   entry_lines = []
 
           with open("verified_curated_full.m3u", "w", encoding="utf-8") as f:
