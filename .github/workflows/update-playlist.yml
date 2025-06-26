@@ -2,7 +2,7 @@ name: Update Playlist and EPG
 
 on:
   schedule:
-    - cron: '0 6 * * *'
+    - cron: '0 6 * * *'  # Daily at 6 AM UTC
   workflow_dispatch:
 
 jobs:
@@ -27,27 +27,35 @@ jobs:
           curl https://iptv-org.github.io/iptv/countries/mx.m3u >> verified_usa_can_mex.m3u
           curl https://iptv-org.github.io/iptv/countries/ca.m3u >> verified_usa_can_mex.m3u
 
-      - name: Curate verified playlist
+      - name: Curate verified playlist (with sanitization)
         run: |
           python3 <<EOF
           import re
+          def sanitize(text):
+              return re.sub(r'[^\x00-\x7F]+', '', text.strip())
+
           freeview_tvg_ids = {
               "abcnews.us", "cbsnews.us", "nbcnews.us", "foxweather.us",
               "bloomberg.us", "cheddar.us", "newsy.us", "tastemade.us",
               "failarmy.us", "nosey.us"
           }
+
           with open("verified_usa_can_mex.m3u", "r", encoding="utf-8", errors="ignore") as f:
               lines = f.readlines()
+
           sections = {"Freeview": [], "USA": [], "Canada": [], "Mexico": [], "Other": []}
           entry_lines = []
+
           for line in lines:
+              line = sanitize(line)
               if line.startswith("#EXTINF"):
-                  entry_lines = [line]
+                  entry_lines = [line + "\n"]
               elif line.startswith("http") and entry_lines:
-                  entry_lines.append(line)
+                  entry_lines.append(line + "\n")
                   entry = "".join(entry_lines)
                   tvg_id_match = re.search(r'tvg-id="(.*?)"', entry_lines[0])
                   tvg_id = tvg_id_match.group(1).lower() if tvg_id_match else ""
+
                   if tvg_id in freeview_tvg_ids:
                       sections["Freeview"].append(entry)
                   elif ".us" in tvg_id:
@@ -59,6 +67,7 @@ jobs:
                   else:
                       sections["Other"].append(entry)
                   entry_lines = []
+
           with open("verified_curated_full.m3u", "w", encoding="utf-8") as f:
               f.write("#EXTM3U\n")
               for region, entries in sections.items():
