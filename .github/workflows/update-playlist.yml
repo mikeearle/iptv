@@ -8,6 +8,7 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
+
     steps:
       - name: Checkout Repo
         uses: actions/checkout@v4
@@ -17,10 +18,13 @@ jobs:
         with:
           node-version: 20
 
-      - name: Install Python
+      - name: Set up Python
         uses: actions/setup-python@v5
         with:
           python-version: 3.11
+
+      - name: Install Python dependencies
+        run: pip install -r requirements.txt
 
       - name: Generate updated playlist
         run: python generate_playlist.py
@@ -41,7 +45,7 @@ jobs:
           cd epg
           npx tsx scripts/commands/epg/grab.ts --channels=../verified_curated_full.m3u --output=../guide.xml
 
-      - name: Auto Commit and Push
+      - name: Commit and push updates
         uses: stefanzweifel/git-auto-commit-action@v5
         with:
           commit_message: "Auto-update playlist and guide"
