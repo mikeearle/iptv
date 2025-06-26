@@ -1,8 +1,8 @@
-name: Update Playlist & EPG
+name: Update Curated M3U Playlist
 
 on:
   schedule:
-    - cron: "0 2 * * *"  # Daily at 2:00 AM UTC
+    - cron: '0 6 * * *'  # Every day at 6 AM UTC
   workflow_dispatch:
 
 jobs:
@@ -11,32 +11,64 @@ jobs:
 
     steps:
       - name: Checkout repo
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       - name: Set up Python
-        uses: actions/setup-python@v4
+        uses: actions/setup-python@v5
         with:
           python-version: '3.x'
 
-      - name: Install Python dependencies
-        run: pip install requests
+      - name: Install pandas
+        run: pip install pandas
 
-      - name: Generate M3U playlist
-        run: python generate_playlist.py
-
-      - name: Set up Node.js
-        uses: actions/setup-node@v3
-        with:
-          node-version: '20'
-
-      - name: Generate EPG (guide.xml)
+      - name: Download latest USA, Canada, and Mexico playlists
         run: |
-          chmod +x generate_epg.sh
-          ./generate_epg.sh
+          curl -o verified_usa_can_mex.m3u https://iptv-org.github.io/iptv/countries/us.m3u
+          curl https://iptv-org.github.io/iptv/countries/mx.m3u >> verified_usa_can_mex.m3u
+          curl https://iptv-org.github.io/iptv/countries/ca.m3u >> verified_usa_can_mex.m3u
 
-      - name: Auto Commit Playlist and EPG
+      - name: Build curated regional + Freeview M3U
+        run: |
+          python3 <<EOF
+          import re
+          freeview_tvg_ids = {
+              "abcnews.us", "cbsnews.us", "nbcnews.us", "foxweather.us",
+              "bloomberg.us", "cheddar.us", "newsy.us", "tastemade.us",
+              "failarmy.us", "nosey.us"
+          }
+          with open("verified_usa_can_mex.m3u", "r", encoding="utf-8", errors="ignore") as f:
+              lines = f.readlines()
+          sections = {"Freeview": [], "USA": [], "Canada": [], "Mexico": [], "Other": []}
+          entry_lines = []
+          for line in lines:
+              if line.startswith("#EXTINF"):
+                  entry_lines = [line]
+              elif line.startswith("http") and entry_lines:
+                  entry_lines.append(line)
+                  entry = "".join(entry_lines)
+                  tvg_id_match = re.search(r'tvg-id="(.*?)"', entry_lines[0])
+                  tvg_id = tvg_id_match.group(1).lower() if tvg_id_match else ""
+                  if tvg_id in freeview_tvg_ids:
+                      sections["Freeview"].append(entry)
+                  elif ".us" in tvg_id:
+                      sections["USA"].append(entry)
+                  elif ".ca" in tvg_id:
+                      sections["Canada"].append(entry)
+                  elif ".mx" in tvg_id:
+                      sections["Mexico"].append(entry)
+                  else:
+                      sections["Other"].append(entry)
+                  entry_lines = []
+          with open("verified_curated_full.m3u", "w", encoding="utf-8") as f:
+              f.write("#EXTM3U\n")
+              for region, entries in sections.items():
+                  if entries:
+                      f.write(f"\n# -------- {region.upper()} CHANNELS --------\n")
+                      f.writelines(entries)
+          EOF
+
+      - name: Commit and push changes
         uses: stefanzweifel/git-auto-commit-action@v5
         with:
-          commit_message: "Auto-update playlist and EPG"
-          file_pattern: "verified_usa_can_mex.m3u guide.xml"
-
+          commit_message: "Auto-update curated playlist"
+          file_pattern: "verified_curated_full.m3u"
