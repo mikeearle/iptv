@@ -27,12 +27,14 @@ jobs:
           curl https://iptv-org.github.io/iptv/countries/mx.m3u >> verified_usa_can_mex.m3u
           curl https://iptv-org.github.io/iptv/countries/ca.m3u >> verified_usa_can_mex.m3u
 
-      - name: Curate verified playlist (with sanitization)
+            - name: Curate verified playlist (with strict sanitization)
         run: |
           python3 <<EOF
           import re
+
           def sanitize(text):
-              return re.sub(r'[^\x00-\x7F]+', '', text.strip())
+              # Remove non-ASCII chars and control codes
+              return re.sub(r'[^\x20-\x7E]', '', text.strip())
 
           freeview_tvg_ids = {
               "abcnews.us", "cbsnews.us", "nbcnews.us", "foxweather.us",
@@ -56,6 +58,10 @@ jobs:
                   tvg_id_match = re.search(r'tvg-id="(.*?)"', entry_lines[0])
                   tvg_id = tvg_id_match.group(1).lower() if tvg_id_match else ""
 
+                  if not tvg_id:
+                      entry_lines = []  # skip entries with no tvg-id
+                      continue
+
                   if tvg_id in freeview_tvg_ids:
                       sections["Freeview"].append(entry)
                   elif ".us" in tvg_id:
@@ -75,6 +81,7 @@ jobs:
                       f.write(f"\n# -------- {region.upper()} CHANNELS --------\n")
                       f.writelines(entries)
           EOF
+
 
       - name: Clone EPG generator
         run: git clone https://github.com/iptv-org/epg.git
