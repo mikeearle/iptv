@@ -2,111 +2,47 @@ name: Update Playlist and EPG
 
 on:
   schedule:
-    - cron: '0 6 * * *'  # Daily at 6 AM UTC
+    - cron: "0 6 * * *"
   workflow_dispatch:
 
 jobs:
   build:
     runs-on: ubuntu-latest
-
     steps:
-      - name: Checkout repo
+      - name: Checkout Repo
         uses: actions/checkout@v4
 
-      - name: Set up Python
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install Python
         uses: actions/setup-python@v5
         with:
-          python-version: '3.x'
+          python-version: 3.11
 
-      - name: Install pandas
-        run: pip install pandas
+      - name: Generate updated playlist
+        run: python generate_playlist.py
 
-      - name: Download latest M3U playlists
-        run: |
-          curl -o verified_usa_can_mex.m3u https://iptv-org.github.io/iptv/countries/us.m3u
-          curl https://iptv-org.github.io/iptv/countries/mx.m3u >> verified_usa_can_mex.m3u
-          curl https://iptv-org.github.io/iptv/countries/ca.m3u >> verified_usa_can_mex.m3u
+      - name: Sanitize playlist
+        run: python sanitize_playlist.py
 
-      - name: Curate verified playlist (EPG-safe strict)
-        run: |
-          python3 <<EOF
-          import re
-
-          def sanitize(text):
-              return re.sub(r'[^\x20-\x7E]', '', text.strip())
-
-          freeview_tvg_ids = {
-              "abcnews.us", "cbsnews.us", "nbcnews.us", "foxweather.us",
-              "bloomberg.us", "cheddar.us", "newsy.us", "tastemade.us",
-              "failarmy.us", "nosey.us"
-          }
-
-          with open("verified_usa_can_mex.m3u", "r", encoding="utf-8", errors="ignore") as f:
-              lines = f.readlines()
-
-          sections = {"Freeview": [], "USA": [], "Canada": [], "Mexico": [], "Other": []}
-          entry_lines = []
-
-          for line in lines:
-              line = sanitize(line)
-              if not line or line.startswith("#EXTM3U") or line.isspace():
-                  continue
-
-              if line.startswith("#EXTINF"):
-                  entry_lines = [line + "\n"]
-              elif line.startswith("http") and entry_lines:
-                  entry_lines.append(line + "\n")
-                  entry = "".join(entry_lines)
-
-                  # Validate tvg-id
-                  try:
-                      tvg_id = re.search(r'tvg-id="(.*?)"', entry_lines[0]).group(1).lower()
-                  except:
-                      entry_lines = []
-                      continue
-
-                  if not tvg_id or not entry_lines[1].startswith("http"):
-                      entry_lines = []
-                      continue
-
-                  if tvg_id in freeview_tvg_ids:
-                      sections["Freeview"].append(entry)
-                  elif ".us" in tvg_id:
-                      sections["USA"].append(entry)
-                  elif ".ca" in tvg_id:
-                      sections["Canada"].append(entry)
-                  elif ".mx" in tvg_id:
-                      sections["Mexico"].append(entry)
-                  else:
-                      sections["Other"].append(entry)
-                  entry_lines = []
-
-          with open("verified_curated_full.m3u", "w", encoding="utf-8") as f:
-              f.write("#EXTM3U\n")
-              for region, entries in sections.items():
-                  if entries:
-                      f.write(f"\n# -------- {region.upper()} CHANNELS --------\n")
-                      f.writelines(entries)
-
-          with open("skipped_entries.log", "w") as debug_out:
-              total = sum(len(v) for v in sections.values())
-              debug_out.write(f"Processed {len(lines)} lines, {total} valid entries\n")
-              for k, v in sections.items():
-                  debug_out.write(f"{k}: {len(v)}\n")
-          EOF
-
-      - name: Clone EPG generator
+      - name: Clone EPG repo
         run: git clone https://github.com/iptv-org/epg.git
 
-      - name: Generate guide.xml from curated M3U
+      - name: Install EPG dependencies
         run: |
           cd epg
           npm install
-          npx tsx scripts/commands/epg/grab.ts --channels=../verified_curated_full.m3u --output=../guide.xml
-          cd ..
 
-      - name: Commit playlist and EPG
+      - name: Generate guide.xml
+        run: |
+          cd epg
+          npx tsx scripts/commands/epg/grab.ts --channels=../verified_curated_full.m3u --output=../guide.xml
+
+      - name: Auto Commit and Push
         uses: stefanzweifel/git-auto-commit-action@v5
         with:
           commit_message: "Auto-update playlist and guide"
-          file_pattern: "verified_curated_full.m3u guide.xml skipped_entries.log"
+          file_pattern: "verified_curated_full.m3u guide.xml invalid_tvg_ids.log"
